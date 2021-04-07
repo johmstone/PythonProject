@@ -83,39 +83,44 @@ def recibirDinero():
     print("[2] Transferir Dinero")
 
 
+
+def actionMenu(option):
+    if option == 1:
+        print("===================================================================")
+        print("====================== RECIBIR DINERO =============================")
+        getmonedas()
+        
+        moneyType = int(input("Seleccione la moneda?"))
+        moneyQty = int(input("Cantidad?"))
+
+        for item in monedero:
+            if item.internalid == moneyType:
+                item.DepositoDirecto(moneyQty)
+
+        # do stuff
+        print("===================================================================")
+        print("============================= HECHO ===============================")
+        for item in monedero:
+            print("=== Nuevo balance:",item.saldo, item.nombre, "==> Saldo en USD:", item.calcularSaldo(),"=====================")
+        print("===================================================================")
+
+    elif option == 2:
+        print("option 2")
+    elif option == 3:
+        print("option 3")
+    elif option == 4:
+        print("option 4")
+    else:
+        print("option 5")
+
+
 # Start all Logic Business
 initialdata()    
 menu()
-
 option = int(input("Seleccione una opcion:"))
+actionMenu(option)
 
-if option == 1:
-    print("===================================================================")
-    print("====================== RECIBIR DINERO =============================")
-    getmonedas()
-    
-    moneyType = int(input("Seleccione la moneda?"))
-    moneyQty = int(input("Cantidad?"))
-
-    for item in monedero:
-        if item.internalid == moneyType:
-            item.DepositoDirecto(moneyQty)
-
-    # do stuff
-    print("===================================================================")
-    print("============================= HECHO ===============================")
-    for item in monedero:
-        print("=== Nuevo balance:",item.saldo, item.nombre, "==> Saldo en USD:", item.calcularSaldo(),"=====================")
-    print("===================================================================")
-
-elif option == 2:
-    print("option 2")
-elif option == 3:
-    print("option 3")
-elif option == 4:
-    print("option 4")
-else:
-    print("option 5")
 
 menu()
 option = int(input("Seleccione una opcion:"))
+actionMenu(option)
