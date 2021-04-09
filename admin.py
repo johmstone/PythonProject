@@ -1,8 +1,29 @@
 import requests
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import json
+from datetime import datetime
+from tabulate import tabulate
 
 monedero = []
+transacciones = []
+
+class transaccion(object):
+    def __init__(self, fecha, codigodestino, tipo, monedaid, moneda, monto):
+        self.fecha = fecha,
+        self.codigodestino = codigodestino,        
+        self.tipo = tipo,
+        self.monedaid = monedaid,
+        self.moneda = moneda,
+        self.monto = monto
+
+    def serialize(self):
+        return {
+            "fecha": self.fecha,
+            "codigoDestino": self.codigodestino,
+            "tipo": self.tipo,
+            "moneda": self.moneda,
+            "monto": self.monto
+        }
 
 class Criptomoneda(object):
     def __init__(self, id, internalid, nombre, saldo, cotizacion):
@@ -28,7 +49,7 @@ class Criptomoneda(object):
         return {
             "id": self.id,
             "internalid": self.internalid,
-            "nobmre": self.nombre,
+            "nombre": self.nombre,
             "saldo": self.saldo
         }
 
@@ -83,19 +104,25 @@ def recibirDinero():
     print("[2] Transferir Dinero")
 
 
-
 def actionMenu(option):
     if option == 1:
         print("===================================================================")
         print("====================== RECIBIR DINERO =============================")
-        getmonedas()
         
+        
+        codigoDestino = input("Ingrese el codigo de Destinatario: ")
+        getmonedas()
         moneyType = int(input("Seleccione la moneda?"))
         moneyQty = int(input("Cantidad?"))
+        moneda = 'Bitcoins'
 
         for item in monedero:
             if item.internalid == moneyType:
                 item.DepositoDirecto(moneyQty)
+                moneda = item.nombre
+
+        # print("tipo de moneda:",moneda)
+        transacciones.append(transaccion(datetime.now(),codigoDestino,'Credito',moneyType,moneda,moneyQty))        
 
         # do stuff
         print("===================================================================")
@@ -110,9 +137,11 @@ def actionMenu(option):
         print("option 3")
     elif option == 4:
         print("option 4")
-    else:
+    elif option == 5:
         print("option 5")
-
+        print(form)
+    else:
+        print("=========== Salio del sistema =====================")
 
 # Start all Logic Business
 initialdata()    
