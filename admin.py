@@ -1,4 +1,5 @@
 import requests
+from requests import models
 from requests.exceptions import ConnectionError, Timeout, TooManyRedirects
 import json
 from datetime import datetime
@@ -6,23 +7,28 @@ from tabulate import tabulate
 
 monedero = []
 transacciones = []
+UserCode = ''
 
-class transaccion(object):
-    def __init__(self, fecha, codigodestino, tipo, monedaid, moneda, monto):
-        self.fecha = fecha,
-        self.codigodestino = codigodestino,        
-        self.tipo = tipo,
-        self.monedaid = monedaid,
-        self.moneda = moneda,
+class Transaccion(object):
+    def __init__(self, fecha, fromUser, toUser, tipo, monedaid, moneda, monto, montoUSD):
+        self.fecha = fecha
+        self.fromUser = fromUser
+        self.toUser = toUser
+        self.tipo = tipo
+        self.monedaid = monedaid
+        self.moneda = moneda
         self.monto = monto
+        self.montoUSD = montoUSD
 
     def serialize(self):
         return {
-            "fecha": self.fecha,
-            "codigoDestino": self.codigodestino,
-            "tipo": self.tipo,
-            "moneda": self.moneda,
-            "monto": self.monto
+            "Fecha": self.fecha.strftime("%m/%d/%Y, %H:%M:%S"),
+            "De": self.fromUser,
+            "Para": self.toUser,
+            "Tipo de Transaccion": self.tipo,
+            "Moneda": self.moneda,
+            "Monto": self.monto,
+            "Monto en USD": self.montoUSD
         }
 
 class Criptomoneda(object):
@@ -38,6 +44,9 @@ class Criptomoneda(object):
 
     def DepositoDirecto(self, monto):
         self.saldo = self.saldo + monto
+    
+    def Transferencia(self, monto):
+        self.saldo = self.saldo - monto
 
     def DepositoenUSD(self, monto):
         self.saldo = self.saldo + (monto/self.cotizacion)
@@ -81,6 +90,12 @@ def initialdata():
         item.indicarRate(detail['data']["%s" % (item.id)]['quote']['USD']['price']) 
         # print(detail['data']["%s" % (item.id)]['quote']['USD']['price']) 
 
+    print("===================================================================")
+    print("======================= BUENOS DIAS ===============================")
+    global UserCode
+    UserCode = input("Por favor ingrese su codigo de Usuario: ")
+    print("=== Gracias ===")
+
 def getmonedas():
     print("Tipo de Moneda")
     print('[1] Bitcoins')
@@ -103,43 +118,154 @@ def recibirDinero():
     print("[1] Recibir Dinero")
     print("[2] Transferir Dinero")
 
+def CheckMoneyType(MoneyID):
+    moneylist = []
+    for item in monedero:
+        moneylist.append(item.internalid)
+    return MoneyID in moneylist
+
+def SelectMoneyType():    
+    ValidMoneyType = 0
+    while ValidMoneyType == 0:
+        getmonedas()
+        moneyType = int(input("Seleccione la moneda?"))
+        if(CheckMoneyType(moneyType)):
+            ValidMoneyType = moneyType
+            break
+        else:
+            print('El tipo de moneda seleccionado no existe')
+            print("===================================================================")
+    
+    return ValidMoneyType
+
+def SelectRemitente(msg):
+    remitente = ''
+    i = 0
+    while i == 0:
+        user = input(msg)
+        if(user == UserCode):
+            print('El código del remitente no es valido!!!')
+        else:
+            remitente = user
+            break
+    
+    return remitente
+
+def ValidAmount(msg,type,moneyID):
+    amount = 0
+    availableAmount = 0
+    money = ''
+    for item in monedero:
+        if(item.internalid == moneyID):
+            availableAmount = item.saldo
+            money = item.nombre
+
+    i = 0
+    while i == 0:
+        moneyQty = int(input(msg))
+        if(moneyQty <= 0):
+            print('Este monto es invalido!!!')
+            continueNav()
+        elif ((moneyQty > availableAmount) and (type == 'Debito')):
+            print('Este monto excede al monto disponible (',availableAmount,money,").")
+        else:
+            amount = moneyQty
+            break
+
+    return amount
+
+def continueNav():
+    menu()
+    option = int(input("Seleccione una opcion:"))
+    actionMenu(option)
+
+def Deposit(User, MoneyType, MoneyQty):
+    MoneyName = ''
+    USDAmount = 0
+    for item in monedero:
+            if item.internalid == MoneyType:
+                item.DepositoDirecto(MoneyQty)
+                MoneyName = item.nombre
+                USDAmount = MoneyQty*item.cotizacion
+
+    transacciones.append(Transaccion(datetime.now(),User, UserCode,'Credito',MoneyType,MoneyName,MoneyQty, USDAmount))
+
+def Transfer(User, MoneyType, MoneyQty):
+    MoneyName = ''
+    USDAmount = 0
+    for item in monedero:
+            if item.internalid == MoneyType:
+                item.Transferencia(MoneyQty)
+                MoneyName = item.nombre
+                USDAmount = MoneyQty*item.cotizacion
+
+    transacciones.append(Transaccion(datetime.now(),UserCode, User,'Debito',MoneyType,MoneyName,MoneyQty, USDAmount))
+
+def PrintBalanceByMoney(MoneyType):
+    print("===================== BALANCE POR MONEDA ==========================")
+    for item in monedero:
+        if(item.internalid == MoneyType):
+            print("=== Nuevo balance:",item.saldo, item.nombre, "==> Saldo en USD:", item.calcularSaldo(),"=====================")
+    print("===================================================================")
+
+def PrintMainBalance():
+    TotalMoney = 0
+    print("===================== BALANCE POR MONEDA ==========================")
+    for item in monedero:
+        TotalMoney = TotalMoney + item.calcularSaldo()
+        print("=== Nuevo balance:",item.saldo, item.nombre, "==> Saldo en USD:", item.calcularSaldo(),"=====================")
+    print("====================== BALANCE GENERAL ============================")
+    print("=== Balance Total en USD:",TotalMoney)
+    print("===================================================================")
 
 def actionMenu(option):
     if option == 1:
         print("===================================================================")
         print("====================== RECIBIR DINERO =============================")
+        UserCode = SelectRemitente('Por favor ingrese el codigo de Usuario que envió el dinero: ')
+        ValidMoneyType = SelectMoneyType()
+        moneyQty = ValidAmount('Por favor ingrese la cantidad a recibir?','Credito',ValidMoneyType)
         
-        
-        codigoDestino = input("Ingrese el codigo de Destinatario: ")
-        getmonedas()
-        moneyType = int(input("Seleccione la moneda?"))
-        moneyQty = int(input("Cantidad?"))
-        moneda = 'Bitcoins'
-
-        for item in monedero:
-            if item.internalid == moneyType:
-                item.DepositoDirecto(moneyQty)
-                moneda = item.nombre
-
-        # print("tipo de moneda:",moneda)
-        transacciones.append(transaccion(datetime.now(),codigoDestino,'Credito',moneyType,moneda,moneyQty))        
+        Deposit(UserCode,ValidMoneyType,moneyQty)
 
         # do stuff
         print("===================================================================")
         print("============================= HECHO ===============================")
-        for item in monedero:
-            print("=== Nuevo balance:",item.saldo, item.nombre, "==> Saldo en USD:", item.calcularSaldo(),"=====================")
-        print("===================================================================")
+        PrintBalanceByMoney(ValidMoneyType)
+        continueNav()
 
     elif option == 2:
-        print("option 2")
+        print("===================================================================")
+        print("==================== TRANSFERIR DINERO ============================")
+        UserCode = SelectRemitente('Por favor ingrese el codigo de Usuario que recibe el dinero: ')
+        ValidMoneyType = SelectMoneyType()
+        moneyQty = ValidAmount('Por favor ingrese la cantidad a transferir?','Debito', ValidMoneyType)
+        Transfer(UserCode,ValidMoneyType,moneyQty)
+        # do stuff
+        print("===================================================================")
+        print("============================= HECHO ===============================")
+        PrintBalanceByMoney(ValidMoneyType)
+        continueNav()
+
     elif option == 3:
-        print("option 3")
+        # do stuff
+        print("===================================================================")
+        ValidMoneyType = SelectMoneyType()
+        PrintBalanceByMoney(ValidMoneyType)
+        continueNav()
+
     elif option == 4:
-        print("option 4")
+        print("===================================================================")
+        PrintMainBalance()
+        continueNav()
+
     elif option == 5:
-        print("option 5")
-        print(form)
+        print("===================================================================")
+        print("================ HISTORIAL DE TRANSACCIONES =======================")
+        for item in transacciones:
+            # print("=== Fecha:",item.fecha,"==> Tipo:", item.tipo, "==> Destino:", item.codigodestino, "==> Moneda:", item.moneda, "==> Monto:",item.monto ,"=====================")
+            print(item.serialize())
+        continueNav()
     else:
         print("=========== Salio del sistema =====================")
 
@@ -150,6 +276,6 @@ option = int(input("Seleccione una opcion:"))
 actionMenu(option)
 
 
-menu()
-option = int(input("Seleccione una opcion:"))
-actionMenu(option)
+# menu()
+# option = int(input("Seleccione una opcion:"))
+# actionMenu(option)
